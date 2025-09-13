@@ -7,7 +7,15 @@ CipherPayroll FHE is a private, on-chain payroll built on Zama FHEVM. All amount
 <h2>
  <p align="center">
   <a href="https://soostoltenberg.github.io/CipherPayroll_FHE" target="_blank" rel="noopener noreferrer">
-    🚀 LIVE DEMO 
+  LIVE DEMO 
+  </a>
+ </p>
+</h2>
+
+<h2>
+ <p align="center">
+  <a href="https://youtu.be/rDmekHBSSfc" target="_blank" rel="noopener noreferrer">
+    🎥 VIDEO DEMO
   </a>
  </p>
 </h2>
