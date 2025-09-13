@@ -4,7 +4,6 @@
 
 CipherPayroll FHE is a private, on-chain payroll built on Zama FHEVM. All amounts (GROSS/TAX/NET) are encrypted end-to-end; HR can add employees, accrue streaming pay, record payouts, and grant bonuses without exposing per-employee data. Only NET/TAX aggregates are publicly disclosed for audit, with a frontend powered by the Zama Relayer SDK (EIP-712 userDecrypt) and optional USDC transfers. Ships as a static web dApp on Sepolia.
 
-https://soostoltenberg.github.io/CipherPayroll_FHE/
 <h2>
  <p align="center">
   <a href="https://soostoltenberg.github.io/CipherPayroll_FHE" target="_blank" rel="noopener noreferrer">
