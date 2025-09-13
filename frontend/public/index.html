@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CipherPayroll FHE — private on‑chain payroll</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <!-- Chart.js for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <noscript>JavaScript is required</noscript>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">✦</span>
+        <div>
+          <div class="brand-title">CipherPayroll FHE</div>
+          <div class="brand-sub">Private on-chain payroll & streaming • Zama Relayer SDK</div>
+        </div>
+      </div>
+      <div class="controls">
+        <span id="chain-badge" class="badge">—</span>
+        <span id="ctr-badge" class="badge badge-ghost">Contract: —</span>
+        <span id="role-badge" class="badge">Role: —</span>
+        <button id="btn-connect" class="btn">Connect wallet</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="tabs">
+        <div class="tablist">
+          <button class="tab active" data-tab="hr">HR / Finance</button>
+          <button class="tab" data-tab="emp">Employee</button>
+          <button class="tab" data-tab="audit">Audit / Tax</button>
+        </div>
+
+        <!-- HR / Finance -->
+        <section id="tab-hr" class="tabpane active">
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>Add employee</h3>
+
+              <label class="field">
+                <span>Employee address</span>
+                <input id="emp-addr" placeholder="0xEmployee" />
+              </label>
+
+              <label class="field">
+                <span>Department</span>
+                <select id="emp-dept-select" class="w-100">
+                  <option value="" disabled selected>— loading departments… —</option>
+                </select>
+                <small>
+                  If the department is missing — create it:
+                  <button id="btn-new-dept" class="btn btn-xs btn-outline" type="button">Add department</button>
+                </small>
+              </label>
+
+              <label class="field">
+                <span>Monthly amount</span>
+                <input id="emp-monthly" placeholder="3000" />
+                <small>Encrypted as euint64 (base units, 6 decimals) → GROSS/sec and TAX/sec</small>
+              </label>
+
+              <button id="btn-add" class="btn">Add (encrypted)</button>
+            </div>
+
+            <div class="card">
+              <h3>Accrual and payments</h3>
+
+              <label class="field">
+                <span>Employee address</span>
+                <input id="pay-addr" placeholder="0xEmployee" />
+              </label>
+
+              <div class="row gap">
+                <button id="btn-accrue" class="btn btn-secondary">Accrue now</button>
+     
+              </div>
+
+              <div class="row gap">
+               
+                <label class="field">
+                   <span></span>
+                  <span></span>
+                  <span>Record payment (NET, encrypted)</span>
+                  <input id="pay-amount" class="w-96" placeholder="1000" title="Deducted from NET" />
+                </label>
+              </div>
+
+              <div class="row gap">
+                <button id="btn-pay-wizard" class="btn btn-secondary" title="1) Record NET on contract, 2) Send real USDC transfer">
+                  Paid (USDC)
+                </button>
+                <a id="out-usdc-tx" class="muted" target="_blank" rel="noopener"></a>
+              </div>
+
+              <div class="row gap">
+                <label class="field">
+                  <span></span>
+                  <span></span>
+                  <span>Bonus (gross)</span>
+                  <span class="muted">Gross, 20% tax is calculated off‑chain</span>
+                  <input id="bonus-amount" class="w-96" placeholder="500" title="Gross, 20% tax is calculated off‑chain" />
+                  
+                </label>
+                
+              </div>
+              <div class="row gap">
+                <button id="btn-bonus" class="btn btn-secondary">Grant bonus</button>
+                <a id="out-usdc-tx" class="muted" target="_blank" rel="noopener"></a>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Employees by department -->
+          <div class="card">
+            <h3>Employees by department</h3>
+
+            <!-- Filters / search -->
+            <div class="row gap wrap" style="margin-bottom:8px">
+              <label class="field">
+                <span>Department</span>
+                <select id="flt-dept" class="w-160">
+                  <option value="">All departments</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Address</span>
+                <input id="flt-addr" class="w-160" placeholder="0x… / substring" />
+              </label>
+              <label class="field">
+                <span>NET ≥</span>
+                <input id="flt-net-min" class="w-96" placeholder="0" />
+              </label>
+              <label class="field">
+                <span>NET ≤</span>
+                <input id="flt-net-max" class="w-96" placeholder="∞" />
+              </label>
+              <button id="btn-apply-filters" class="btn btn-outline btn-xs" title="Apply filters">Filter</button>
+              <button id="btn-clear-filters" class="btn btn-outline btn-xs">Clear</button>
+            </div>
+
+            <div class="row gap">
+              <button id="btn-load-emps" class="btn btn-outline">Load list</button>
+              <button id="btn-accrue-all" class="btn">Accrue all</button>
+            </div>
+
+            <div class="table-wrap" id="emps-wrap" aria-busy="false">
+              <table id="emps" class="table">
+                <thead>
+                  <tr>
+                    <th>Department</th>
+                    <th>Employee</th>
+                    <th>Monthly amount</th>
+                    <th>Accrued (NET)</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="row table-foot">
+              <div class="row gap">
+                <span class="muted">Per page:</span>
+                <select id="page-size" class="w-72">
+                  <option>10</option>
+                  <option selected>25</option>
+                  <option>50</option>
+                  <option>100</option>
+                </select>
+              </div>
+              <div class="row gap">
+                <button id="page-prev" class="btn btn-outline btn-xs">‹</button>
+                <span id="page-info" class="muted">page 1 / 1</span>
+                <button id="page-next" class="btn btn-outline btn-xs">›</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Department bonus -->
+          <div class="card">
+            <h3>Department bonus</h3>
+            <div class="grid grid-2">
+              <label class="field">
+                <span>Department</span>
+                <select id="bonus-dept-select" class="w-100">
+                  <option value="" disabled selected>— loading departments… —</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Gross amount (per employee)</span>
+                <input id="bonus-dept-amount" class="w-160" placeholder="200" title="Gross, off‑chain 20% → TAX" />
+              </label>
+            </div>
+            <div class="row gap" style="margin-top:10px;">
+              <button id="btn-bonus-dept" class="btn btn-secondary">Department bonus (batch)</button>
+              <span>20% tax is calculated off‑chain</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Operation logs</h3>
+            <div class="row gap">
+              <label class="field">
+                <span>From block</span>
+                <input id="logs-from" class="w-160" value="latest-5000" />
+              </label>
+              <button id="btn-logs" class="btn btn-outline">Load logs</button>
+              <button id="btn-csv" class="btn btn-outline">Export CSV</button>
+            </div>
+
+            <div class="table-wrap">
+              <table id="logs" class="table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Block</th>
+                    <th>Type</th>
+                    <th>Employee</th>
+                    <th>DeptId</th>
+                    <th>Meta</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <!-- Pagination (logs) -->
+            <div class="row table-foot">
+              <div class="row gap">
+                <span class="muted">Per page:</span>
+                <select id="logs-page-size" class="w-72">
+                  <option>10</option>
+                  <option selected>25</option>
+                  <option>50</option>
+                  <option>100</option>
+                </select>
+              </div>
+              <div class="row gap">
+                <button id="logs-page-prev" class="btn btn-outline btn-xs">‹</button>
+                <span id="logs-page-info" class="muted">page 1 / 1</span>
+                <button id="logs-page-next" class="btn btn-outline btn-xs">›</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Employee -->
+        <section id="tab-emp" class="tabpane">
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>My hourly rate (private)</h3>
+              <button id="btn-my-rate" class="btn btn-secondary">userDecrypt</button>
+              <div class="metric"><span>Rate/hour:</span> <b id="out-my-rate">—</b></div>
+            </div>
+
+            <div class="card">
+              <h3>My accrued (private)</h3>
+              <div class="row gap">
+                <button id="btn-my-accrued" class="btn btn-secondary">userDecrypt</button>
+                <button id="btn-open-paystub" class="btn btn-outline" title="Open paystub">Paystub</button>
+              </div>
+              <div class="metric"><span>GROSS:</span> <b id="out-my-gross">—</b></div>
+              <div class="metric"><span>TAX:</span>   <b id="out-my-tax">—</b></div>
+              <div class="metric"><span>NET:</span> <b id="out-my-accrued">—</b></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Audit / Tax -->
+        <section id="tab-audit" class="tabpane">
+          <div class="grid grid-2">
+            <div class="card">
+              <h3>Publish aggregates (department)</h3>
+              <label class="field">
+                <span>Department</span>
+                <select id="pub-dept-select" class="w-100">
+                  <option value="" disabled selected>— loading departments… —</option>
+                </select>
+              </label>
+
+              <div class="row gap">
+                <button id="btn-reveal-dept" class="btn btn-outline" title="Publish NET; TAX will be fetched automatically">Show department</button>
+              </div>
+
+              <div class="metric"><span>GROSS:</span> <b id="out-dept-gross">—</b></div>
+              <div class="metric"><span>TAX:</span>   <b id="out-dept-tax">—</b></div>
+              <div class="metric"><span>NET:</span>   <b id="out-dept">—</b></div>
+            </div>
+
+            <div class="card">
+              <h3>Publish aggregates (company)</h3>
+              <div class="row gap">
+                <button id="btn-reveal-company" class="btn btn-outline" title="Publish NET; TAX will be fetched automatically">Show company</button>
+              </div>
+
+              <div class="metric"><span>GROSS:</span> <b id="out-company-gross">—</b></div>
+              <div class="metric"><span>TAX:</span>   <b id="out-company-tax">—</b></div>
+              <div class="metric"><span>NET:</span>   <b id="out-company">—</b></div>
+            </div>
+
+            <div class="card">
+              <h3>Department charts (for period)</h3>
+              <div class="row gap wrap" style="margin-bottom:8px">
+                <label class="field">
+                  <span>Period from</span>
+                  <input type="date" id="chart-from" class="w-160" />
+                </label>
+                <label class="field">
+                  <span>to</span>
+                  <input type="date" id="chart-to" class="w-160" />
+                </label>
+                <label class="field">
+                  <span>Department</span>
+                  <select id="chart-dept" class="w-160">
+                    <option value="">All departments</option>
+                  </select>
+                </label>
+                <button id="btn-build-charts" class="btn btn-outline btn-xs">Build</button>
+              </div>
+              <!-- Canvas expected by app.js (id: chart-depts) -->
+              <canvas id="chart-depts" height="220"></canvas>
+            </div>
+
+            <div class="card">
+              <h3>Top‑5 employees by GROSS/NET/TAX</h3>
+              <div class="row gap wrap" style="margin-bottom:8px">
+                <label class="field">
+                  <span>Department</span>
+                  <select id="chart-top5-dept" class="w-160">
+                    <option value="">All</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Metric</span>
+                  <select id="chart-top5-metric" class="w-160">
+                    <option value="net">NET</option>
+                    <option value="gross">GROSS</option>
+                    <option value="tax">TAX</option>
+                  </select>
+                </label>
+                <!-- id must match app.js -->
+                <button id="btn-top5" class="btn btn-outline btn-xs">Build</button>
+              </div>
+              <!-- Canvas expected by app.js (id: chart-top5) -->
+              <canvas id="chart-top5" height="220"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Modal: paystub -->
+    <div id="modal-paystub" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="paystub-title">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div class="row gap">
+            <strong id="paystub-title">Paystub</strong>
+            <span id="paystub-addr" class="muted"></span>
+          </div>
+          <button id="paystub-close" class="btn btn-outline btn-xs">Close</button>
+        </div>
+        <div class="modal-body">
+          <div class="grid grid-2">
+            <div>
+              <div class="metric"><span>Current rate (hour, GROSS):</span> <b id="paystub-rate-hour">—</b></div>
+              <div class="metric"><span>Accrued GROSS:</span> <b id="paystub-gross">—</b></div>
+              <div class="metric"><span>Tax (TAX):</span> <b id="paystub-tax">—</b></div>
+              <div class="metric"><span>Available NET:</span> <b id="paystub-net">—</b></div>
+            </div>
+            <div>
+              <div id="paystub-chart" class="chart-wrap"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <div class="row gap">
+            <button id="paystub-download" class="btn btn-secondary">Download paystub (PDF)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global spinner -->
+    <div id="global-spinner" class="spinner hidden" aria-hidden="true">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <!-- Modules -->
+    <script type="module" src="./js/config.js"></script>
+    <script type="module" src="./js/abi.js"></script>
+    <script type="module" src="./js/relayer.js"></script>
+    <script type="module" src="./js/ui.js"></script>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
